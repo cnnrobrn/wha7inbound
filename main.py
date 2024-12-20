@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from pydantic import BaseModel
 from typing import Optional, Union, Dict, Any
 from openai import OpenAI
@@ -6,6 +6,7 @@ import logging
 from enum import Enum
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI()
 client = OpenAI()
