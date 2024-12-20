@@ -6,6 +6,27 @@ import logging
 from enum import Enum
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+import sys
+
+def setup_logging():
+    # Create a formatter that includes timestamp and log level
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    # Configure the root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    
+    # Add console handler to output to stdout
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+    
+    return root_logger
+
+logger = setup_logging()
 
 
 app = FastAPI()
@@ -143,7 +164,18 @@ async def analyze_image(request: ImageAnalysisRequest):
             detail=f"Error processing image analysis: {str(e)}"
         )
 
-# Error handler for validation errors
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Application starting up...")
+    logger.info("OpenAI client initialized")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("Application shutting down...")
+    
+# Rest of your FastAPI code...
+
 @app.exception_handler(ValueError)
 async def validation_exception_handler(request, exc):
     return {
@@ -151,5 +183,5 @@ async def validation_exception_handler(request, exc):
         "message": str(exc)
     }
 
-    if __name__ == "__main__":
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
