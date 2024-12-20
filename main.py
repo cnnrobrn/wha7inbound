@@ -152,7 +152,7 @@ async def analyze_image(request: ImageAnalysisRequest):
             messages[1]["content"].append({
                 "type": "image_url",
                 "image_url": {
-                    "url": request.base64_image
+                    "url": f"data:image/jpeg;base64,{request.base64_image}"
                 },
             })
 
