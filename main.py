@@ -8,21 +8,28 @@ import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import sys
+import base64
+
 
 def setup_logging():
-    # Create a formatter that includes timestamp and log level
+    # Create a formatter that includes timestamp, log level, and line number
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        '%(asctime)s - %(name)s - %(levelname)s - %(pathname)s:%(lineno)d - %(message)s'
     )
     
     # Configure the root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(logging.DEBUG)  # Set to DEBUG for more detailed logs
     
-    # Add console handler to output to stdout
+    # Add console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
+    
+    # Optionally add file handler for persistent logs
+    file_handler = logging.FileHandler('app.log')
+    file_handler.setFormatter(formatter)
+    root_logger.addHandler(file_handler)
     
     return root_logger
 
@@ -159,22 +166,11 @@ async def analyze_image(request: ImageAnalysisRequest):
 
     except Exception as e:
         logger.error(f"Error analyzing image: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Error processing image analysis: {str(e)}"
         )
-
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Application starting up...")
-    logger.info("OpenAI client initialized")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Application shutting down...")
-    
-# Rest of your FastAPI code...
 
 @app.exception_handler(ValueError)
 async def validation_exception_handler(request, exc):
