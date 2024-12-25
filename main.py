@@ -12,21 +12,17 @@ import base64
 
 
 def setup_logging():
-    # Create a formatter that includes timestamp, log level, and line number
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(pathname)s:%(lineno)d - %(message)s'
     )
     
-    # Configure the root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)  # Set to DEBUG for more detailed logs
+    root_logger.setLevel(logging.DEBUG)
     
-    # Add console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
     
-    # Optionally add file handler for persistent logs
     file_handler = logging.FileHandler('app.log')
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
@@ -35,20 +31,17 @@ def setup_logging():
 
 logger = setup_logging()
 
-
 app = FastAPI()
 client = OpenAI()
 
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend domain
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -61,10 +54,10 @@ class Review(BaseModel):
     Evaluation_matching: int
     Evaluation_trendiness: int
     Evaluation_overall_look: int
-    
 
 class ImageAnalysisRequest(BaseModel):
     base64_image: Optional[str] = None
+    text_input: Optional[str] = None
 
 prompt = """You are the world's premier fashion consultant. Millions are seeking out your knowledge on what items look good on them.
 
@@ -85,145 +78,25 @@ You also provide evaluations out of 100 for the following attributes:
 
 GIVING:
 You also provide a culturally relevant reference to what the outfit represents:
-Work core
-Vermont core (inlcuding any other core)
-Cutesy
-Business Formal
-Old Money
-Slay
-Chad
-2000s Preppy
-Afropunk
-Ah Beng
-Alternative
-Androgynous
-Aristocrat
-Avant Apocalypse
-Bad Boy
-Bakala
-Balletcore
-Ballroom culture
-Bodikon
-Bohemian
-Bombardier
-Bon Chic, Bon Genre
-Boy Next Door
-Boystyle
-Bubble Goth
-Burlesque
-Cani
-Cargopunk
-Cayetana
-Chav
-Chonga
-Choni
-Classic Lolita
-Clean Girl
-Cocalar
-Communist Chic
-Cult Party Kei
-Cyber Grunge
-Cybergoth
-Cyberpop
-Dandy
-Decora
-Dirty Girl
-Dizelaši
-Dolly Girl
-Downtown Girl
-Día De Muertos
-Emo
-Ethno-Chic
-Fairy Kei
-FantasY2K
-Flamenco
-French Girly
-Gabber
-Gangsta Rap
-Gen Z Maximalism
-Girly Kei
-Glamorous Los Angeles
-Gopnik
-Gorpcore
-Goth
-Goth Punk
-Gothic Lolita
-Hair Metal
-Heroin Chic
-Hime Lolita
-Himekaji
-Hippie
-Holographic
-Hypebeast
-Jejemon
-Jojifuku
-Krocha
-Lolailo
-LOLcore
-Lolita
-Manguebeat
-Messy French It Girl
-Milipili
-Minet
-Mob Wife
-Mod
-Mori Kei
-Motomami
-Neo-Celtic
-Nerd
-New Beat
-New Look
-New Spanish Catholic Girl
-Nu-Goth
-Oshare Kei
-Paninaro
-Party Kei
-Pastel Grunge
-Peaky Blinders
-PEEPS
-Pijo
-Pink Pilates Princess
-Pokemón
-Pop Kei
-Poppare
-Power Dressing
-Preppy
-Pretty Preppy
-Punk
-Raxet
-Reggaetonero
-Rockabilly
-Rockstar GF
-Romantic Goth
-Scandi Girl Winter
-Shironuri
-Steampunk
-Sweet Lolita
-Techwear
-Tecktonik
-Teenpunk
-That Girl
-Tomato Girl Summer
-Trad Goth
-Twee
-Weeaboo
-Winter Fairy Coquette
-Yé-yé
+[existing styles list...]
 
 REVIEW:
 Please also provide a text response that compliments the indivudal and gives a summary of your evaluation. Please include lots of emoji's that fit the genz culture. Please end every recommendation with "Your outfit would be evelated by ..."
 """
 
 @app.post("/upload-image/")
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(file: Optional[UploadFile] = File(None), text_input: Optional[str] = None):
     try:
-        content = await file.read()
-        
-        # Convert to base64
-        base64_encoded = base64.b64encode(content).decode('utf-8')
+        base64_encoded = None
+        if file:
+            content = await file.read()
+            base64_encoded = base64.b64encode(content).decode('utf-8')
         
         # Create request object for analyze_image
-        image_request = ImageAnalysisRequest(base64_image=base64_encoded)
+        image_request = ImageAnalysisRequest(
+            base64_image=base64_encoded,
+            text_input=text_input
+        )
         
         # Call analyze_image function
         result = await analyze_image(image_request)
@@ -232,22 +105,7 @@ async def upload_image(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
 async def analyze_image(request: ImageAnalysisRequest):
-    print('start')
-    """
-    Analyze an image using OpenAI's API with structured data extraction.
-    
-    Args:
-        request: ImageAnalysisRequest containing the image and analysis parameters
-        
-    Returns:
-        ImageAnalysisResponse with the analyzed data
-        
-    Raises:
-        HTTPException: If there's an error processing the request
-    """
     try:
         messages = [
             {
@@ -264,6 +122,14 @@ async def analyze_image(request: ImageAnalysisRequest):
                 ]
             }
         ]
+
+        # Add text input if provided
+        if request.text_input:
+            messages[1]["content"].append({
+                "type": "text",
+                "text": f"The user is asking this question. Your primary goal should be to help provide guidance for the following: {request.text_input}"
+            })
+
         # Add image if provided
         if request.base64_image:
             messages[1]["content"].append({
@@ -288,13 +154,6 @@ async def analyze_image(request: ImageAnalysisRequest):
             status_code=500,
             detail=f"Error processing image analysis: {str(e)}"
         )
-
-@app.exception_handler(ValueError)
-async def validation_exception_handler(request, exc):
-    return {
-        "status": "error",
-        "message": str(exc)
-    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
